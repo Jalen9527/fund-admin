@@ -10,12 +10,16 @@ use Dcat\Admin\Layout\Content;
 use Dcat\Admin\Layout\Row;
 use Dcat\Admin\Widgets\Card;
 use Dcat\Admin\Widgets\Markdown;
+use Dcat\Admin\Admin;
 
 class HomeController extends Controller
 {
     public function index(Content $content)
     {
-
+        $user_id = Admin::user()->id;
+        if($user_id != 1 ) {
+            Header("Location: http://".$_SERVER['HTTP_HOST'].'/admin/foud/log');
+        }
 
         return $content
             ->header('主页')

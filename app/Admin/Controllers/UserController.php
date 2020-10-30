@@ -24,6 +24,7 @@ class UserController extends AdminController
      */
     protected function grid()
     {
+        
         return Grid::make(new User(), function (Grid $grid) {
             $grid->column('id')->sortable();
             $grid->column('name');
@@ -86,7 +87,7 @@ class UserController extends AdminController
             $form->hidden('fund_sum')->help('不可编辑，保存后会重新进行计算');
 
             // $form->display('created_at');
-            // $form->display('updated_at');
+            $form->display('updated_at');
             // $form->ignore(['mark']); //忽略该字段
 
             //保存之前执行
@@ -98,32 +99,38 @@ class UserController extends AdminController
                     if($isHas) {
                         return $form->error('用户名已经存在');
                     }
+
+                    $form->fund_rate = floatval($form->fund_rate);
+                    $form->fund_sum = $form->fund_amount + ( $form->fund_amount * ($form->fund_rate/100) );
                 } else {
                     //编辑
                     //判断是否有改动
-                    // $userInfo = ModelUser::where('id', $form->getKey())->first();
-                    // if(isset($userInfo) &&  $userInfo->fund_amount == $form->fund_amount && $userInfo->fund_rate == $form->fund_rate) {
-                    //     return $form->error('已经保存过了或者没有改动任何数据！');
-                    // }
                     $id = $form->getKey();
-                    // if($id){
-                    //      //添加当天操作
-                    //     $dayId = UserFoudDay::where(['user_id'=>$id , 'day'=>date('Y-m-d')])->value('id');
-                    //     $fundDayModel =  UserFoudDay::find($dayId);//
-                    //     $fundDayModel->user_id = $id;
-                    //     $fundDayModel->fund_sum = $form->fund_sum;
-                    //     $fundDayModel->day = $form->day;
-                    //     $fundDayModel->save();
-                        
-                    // }
-                    // dd($form->day);
+                    $loginfo  = UserFoudLog::where('user_id' , $id)->orderBy('created_at','desc')->first();
+
+                    //查询提交当天的数据
+                    $dayLogInfo  = UserFoudLog::where('user_id' , $id)->where('day', $form->day)->orderBy('created_at','desc')->count();
+                    if($dayLogInfo > 0) {
+                        return $form->error($form->day.'当天已更新过数据');
+                    }
+                    
+                    //计算总净值
+                    if( $form->fund_sum > 0 ) {
+                        $fund_sum_log = ($form->fund_rate/100 * $form->fund_sum); //$form->fund_sum - $fund_sum;
+                    } else {
+                        $fund_sum_log = -($form->fund_rate/100 * $form->fund_sum); //$form->fund_sum - $fund_sum;
+                    }
+                    $form->fund_sum = floatval($loginfo->fund_sum) + round($fund_sum_log,2);
+
+                    
+                    // $inc = ( $form->fund_amount - $loginfo->fund_amount);
+                    // $form->fund_sum = ( $loginfo->fund_sum / $loginfo->fund_amount) * $inc + $loginfo->fund_sum;
+
+                    // dd( $form->fund_sum , $loginfo->fund_sum , $fund_sum_log );
                 }
                 $this->day = $form->day;
                 //去掉day
                 $form->deleteInput('day');
-
-                $form->fund_rate = floatval($form->fund_rate);
-                $form->fund_sum = $form->fund_amount + ( $form->fund_amount * ($form->fund_rate/100) );
                 // dd( $form->fund_sum   );exit;
             });
 
@@ -185,13 +192,26 @@ class UserController extends AdminController
 
                     $logFoud->user_id = $id;
                     $logFoud->fund_amount = $form->fund_amount;
-                    $logFoud->fund_rate = $form->fund_rate;
+                    // $logFoud->fund_rate = $form->fund_rate;
                     $logFoud->fund_sum = $form->fund_sum;
                     $logFoud->fund_mark = $form->mark;
                     $logFoud->day = $day;
+                    $logFoud->updated_at = $day. date(" H:i:s");
                     $logFoud->type = 2;
 
                     $loginfo  = $logFoud::where('user_id',$logFoud->user_id)->orderBy('created_at','desc')->first();
+                    
+                    //计算净值/每份
+                    $logFoud->fund_rate = $form->fund_sum / $form->fund_amount;
+
+                    //相较于上日变动
+                    if( $form->fund_sum > 0 ) {
+                        $logFoud->fund_sum_log = ($form->fund_rate/100 * $loginfo->fund_sum); //$form->fund_sum - $fund_sum;
+                    } else {
+                        $logFoud->fund_sum_log = -($form->fund_rate/100 * $loginfo->fund_sum); //$form->fund_sum - $fund_sum;
+                    }
+
+                    //计算是赎回还是买入
                     if( isset($loginfo) ) {
                         $fund_amount = $loginfo->fund_amount;
                         $fund_sum = $loginfo->fund_sum;
@@ -199,10 +219,7 @@ class UserController extends AdminController
                         $fund_amount = 0;
                         $fund_sum = 0;
                     }
-
                     $amount_num = ($form->fund_amount - $fund_amount);
-                    $logFoud->fund_sum_log = $form->fund_sum - $fund_sum;
-
                     if(  $amount_num>0 ) {
                         $logFoud->action = 1;
                     } else if( $amount_num < 0) {

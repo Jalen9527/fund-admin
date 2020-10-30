@@ -11,7 +11,7 @@ return [
     | login page.
     |
     */
-    'name' => 'Foun Admin',
+    'name' => '基金管理系统',
 
     /*
     |--------------------------------------------------------------------------
@@ -22,7 +22,7 @@ return [
     | `img` tag, eg '<img src="http://logo-url" alt="Admin logo">'.
     |
     */
-    'logo' => '<img src="/vendors/dcat-admin/images/logo.png" width="35"> &nbsp;Foun Admin',
+    'logo' => '<img src="/vendors/dcat-admin/images/logo.png" width="35"> 基金管理系统',
 
     /*
     |--------------------------------------------------------------------------

@@ -15,6 +15,8 @@ use Dcat\Admin\Layout\Content;
 use App\Admin\Widgets\Charts\MyBar;
 use Dcat\Admin\Widgets\Card;
 use Dcat\Admin\Admin;
+use Illuminate\Support\Facades\DB;
+use App\Models\UserFoudDay as Model;
 
 class UserFoudDayController extends AdminController
 {
@@ -37,16 +39,26 @@ class UserFoudDayController extends AdminController
      */
     protected function grid()
     {
-
+        // Model::where('id', '30')->delete();
         return Grid::make(new UserFoudDay(['user']), function (Grid $grid) {
             $user_id = Admin::user()->id;
             if($user_id != 1) {
                 $grid->model()->where('user_id' , $user_id);
                 $grid->disableBatchDelete();
-            } 
+            } else {
+                //只查询最新一条如何查询
+                $groupArr = DB::select("select SUBSTRING_INDEX(group_concat(id order by day desc),',',1) as userIn from `user_foud_day` group by user_id  ");
+                foreach ($groupArr as $key => $value) {
+                    $inArr[] = $value->userIn;
+                }
+                $grid->model()->whereIn('id',$inArr);
+            }
+            $grid->model()->orderBy('day', 'desc');
             $grid->column('id')->sortable();
             $grid->column('user_id');
-            $grid->column('user.name' ,'用户名');
+            $grid->column('user.name' ,'用户名')->display(function ($value) {
+                return '<a href="'.admin_url('foud/log?days=1&user_id='.$this->user_id).'" >'.$value.'</a>';
+            });
             $grid->column('fund_sum');
             $grid->column('day');
             $grid->column('created_at');

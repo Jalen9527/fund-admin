@@ -9,9 +9,11 @@ use App\Models\UserFoudDay;
 
 class MyBar extends Chart
 {
-    public function __construct($containerSelector = null, $options = [])
+    public function __construct($containerSelector = null, $options = [] , $setDay=null)
     {
         parent::__construct($containerSelector, $options);
+
+        $this->setDay = $setDay;
 
         $this->setUpOptions();
     }
@@ -31,47 +33,77 @@ class MyBar extends Chart
                 'type' => 'area',
                 'height' => 430,
                 'stacked' => false,
-
+                'zoom' => [
+                    'autoScaleYaxis' => true,
+                ],
             ],
-            'plotOptions' => [
-                'bar' => [
-                    'horizontal' => true,
-                    'dataLabels' => [
-                        'position' => 'top',
-                    ],
-                ]
+            'stroke' => [
+                'width' => 3,
+                // 'show' => true,
+                // 'colors' => [$color->primary()],
+                // "curve" =>'straight',   //直线
             ],
             'dataLabels' => [
                 'enabled' => false,
             ],
-           "fill" => [
-               "type" => 'gradient',
-               "opacity" =>  0.9,
-               "gradient" => [
-                   'shadeIntensity' => 0,
-                   'inverseColors' => false,
-                   // 'opacityFrom' => 1,
-                   // 'opacityTo' => 1,
-                   // 'stops' => [10, 90, 100],
-               ]
-           ],
-            'stroke' => [
-                'show' => true,
-                'width' => 3,
-                'colors' => [$color->primary()],
-                "curve" =>'straight',
+            "fill" => [
+                "opacity" => 1,
+            ],
+            "markers" => [
+                "size" => 0
             ],
             'xaxis' => [
+                'type' => 'category',//'datetime',
+                'tickAmount' => 10,
                 'categories' => [],
+                'hideOverlappingLabels' => true,
+                'labels' => [
+                    "format" => 'yyyy/MM/dd',
+                    // 'datetimeFormatter' => [
+                    //     'year' => 'yyyy',
+                    //     'month' => 'MM',
+                    //     'day' => 'dd',
+                    // ]
+                ]
             ],
-            // 'pattern' => [
-            //     'style' => 'slantedLines',
-            //     'width' => 6,
-            //     'height' => 6,
-            //     'strokeWidth' => 2
-            // ]
-
+            'tooltip' => [
+                'x' => [
+                    'format' => "yyyy/MM/dd"
+                ]
+            ]
         ]);
+        // $this->options([
+        //     'colors' => $colors, //['#008FFB','#008FFB'],//
+        //     'chart' => [
+        //         'type' => 'line',
+        //         'height' => 430,
+        //         'stacked' => false,
+        //         'toolbar' => [
+        //             'autoSelected' => 'pan',
+        //             'show' => false
+        //         ],
+        //     ],
+        //     'stroke' => [
+        //         'width' => 3,
+        //         // 'show' => true,
+        //         // 'colors' => [$color->primary()],
+        //         // "curve" =>'straight',
+        //     ],
+        //     'dataLabels' => [
+        //         'enabled' => false,
+        //     ],
+        //     "fill" => [
+        //        "opacity" => 1,
+        //     ],
+        //     "markers" => [
+        //         "size" => 0
+        //     ],
+        //     'xaxis' => [
+        //         'categories' => [],
+        //         'hideOverlappingLabels' => true,
+        //         // "type" => 'datetime'
+        //     ],
+        // ]);
     }
 
     /**
@@ -79,9 +111,24 @@ class MyBar extends Chart
      */
     protected function buildData()
     {
-        $user_id = Admin::user()->id;
-        $list = UserFoudDay::where('user_id' , $user_id)->orderBy('day', 'desc')->limit(7)->get()->toArray();
+        $user_id = request('user_id') ? request('user_id') : Admin::user()->id;
+        if( $this->setDay ) {
 
+            $setDay = 31 * $this->setDay ;
+            $list = UserFoudDay::where('user_id' , $user_id)
+                            ->whereDate('day', '>', date('Y-m-d',strtotime('-'.$setDay. ' day')))
+                            // ->where('day', '<', date('Y-m-d'))
+                            ->orderBy('day', 'desc')->get(['fund_sum', 'day'])
+                            ->toArray();
+                            // dd(date('Y-m-d',strtotime('-'.$setDay.' day')));
+        } else {
+            //默认拿最近7条
+            $list = UserFoudDay::where('user_id' , $user_id)
+                            ->limit(7)
+                            ->orderBy('day', 'desc')->get(['fund_sum', 'day'])
+                            ->toArray();
+        }
+        
         foreach ($list as $key => $value) {
             $cardData[] = $value['fund_sum'];
             $dayData[] = $value['day'];
